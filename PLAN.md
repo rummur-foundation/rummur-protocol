@@ -477,8 +477,11 @@ Two types of work appear throughout every phase:
 
 | Task | Who | Time |
 |---|---|---|
-| Write all source files, headers, CMakeLists | AI | 2-3 sessions |
+| Define C API header (`libxmrmsg.h`) | AI | 1 session (review before proceeding) |
+| Write all source files, CMakeLists | AI | 2-3 sessions |
 | Write unit tests + fuzz test harness | AI | 1 session |
+| Write deterministic test vector generator (fixed inputs → derivation, keystream, plaintext, ciphertext) | AI | part of test session |
+| Commit test vector outputs into `PROTOCOL.md §13` | Human + AI | 1 day |
 | Set up iOS cross-compilation toolchain | Human | 2-3 days |
 | Build, fix compiler errors | Human + AI | 2-3 days |
 | Run tests, review results, iterate | Human + AI | 2-3 days |
@@ -757,7 +760,8 @@ All major design questions resolved. Recorded here for reference.
 |---|---|---|---|
 | 1 | Sender identity default | Omit by default. Auto-include after contact replies. | Max privacy on cold messages; natural feel in established conversations. |
 | 2 | Thread nonce size | **8 bytes** | Collision-proof in practice. |
-| 3 | Minimum send amount | **Self-send** — transaction output goes back to sender | Zero XMR leaves the wallet beyond the fee. Recipient gets the message; sender recovers the output. |
+| 3 | Minimum send amount | **Output to recipient**, default 0.000001 XMR, configurable | Enables view tag filtering (HF15). Default is safe above economic dust threshold. Configurable so implementations can adjust as fee markets evolve without a protocol version bump. Floor is 1 piconero (protocol absolute minimum). Self-send deferred to a future version. |
+| 10 | Subaddress support | **Full support from v0.1** — recipients and senders may use primary or subaddress | Correct Monero privacy model: subaddresses prevent senders from correlating multiple contacts to one wallet. Requires trying all candidate tx public keys during scanning (tag 0x01 + tag 0x04). |
 | 4 | Long messages | **242-byte hard limit per tx. IPFS removed.** Chained transactions or links for longer content in Phase 7. | IPFS rejected: no persistence guarantee without centralised pinning, metadata leakage on fetch, external network dependency. |
 | 5 | Nostr | **Deferred to Phase 8** | Privacy tradeoffs need community evaluation first. |
 | 6 | Read receipts | **Optional, sender-pays** — off by default per conversation | Costs XMR; meaningful when enabled. Sender opts in. |

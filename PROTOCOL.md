@@ -155,21 +155,44 @@ Bytes 10–254 carry the ECDH-encrypted payload (245 bytes). The encryption sche
 
 ### 5.1. Key derivation
 
-The sender derives a shared secret using the existing Monero ECDH mechanism:
+The sender derives a shared secret using the existing Monero ECDH mechanism. The formula differs depending on whether the recipient's address is a primary address or a subaddress.
+
+**Primary address recipient**
 
 ```
-// sender side
-generate_key_derivation(recipient.view_pk, tx_sk, derivation)
+tx_pk      = tx_sk × G                          // standard one-time key
+derivation = 8 × tx_sk × recipient.view_pk      // sender side
+derivation = 8 × view_sk × tx_pk                // recipient side
 ```
 
-The recipient derives the same shared secret using the one-time transaction public key from `tx_extra`:
+`tx_pk` is stored as the main transaction public key (tag `0x01` in `tx_extra`).
+
+**Subaddress recipient**
+
+A Monero subaddress encodes a derived spend key `D` and view key `C = a × D`, where `a` is the wallet's master view secret key.
 
 ```
-// recipient side
-generate_key_derivation(tx_pk, view_sk, derivation)
+tx_pk      = tx_sk × D                          // tx_pk uses subaddr spend pubkey
+derivation = 8 × tx_sk × C                      // sender side: 8 × tx_sk × a × D
+derivation = 8 × view_sk × tx_pk               // recipient side: 8 × a × tx_sk × D
 ```
 
-Both calls produce the same 32-byte `derivation` value.
+Both sides produce the same 32-byte `derivation` value because scalar multiplication is commutative.
+
+The `tx_pk` for a subaddress output may appear as:
+- The main transaction public key (tag `0x01`) — used when the transaction has exactly one subaddress output
+- One of the additional public keys (tag `0x04`) — used when the transaction has multiple outputs to different subaddresses, or a mix of standard and subaddress outputs
+
+The recipient MUST try all candidate tx public keys when scanning (see §11).
+
+**In both cases, the recipient computes the derivation identically:**
+
+```
+// recipient side — works for both primary and subaddress
+generate_key_derivation(candidate_tx_pk, view_sk, derivation)
+```
+
+The correct candidate is the one that produces a valid Rummur payload after decryption (§5.4).
 
 ### 5.2. Keystream generation
 
@@ -258,7 +281,7 @@ Implementations MUST generate new random padding for every message, including re
 
 ### 6.4. Sender address (optional)
 
-When flag bit 0 is set, the 95-byte ASCII representation of the sender's standard Monero address is appended immediately after the message text. The address MUST be the sender's primary address (not a subaddress).
+When flag bit 0 is set, the 95-byte ASCII representation of the sender's Monero address is appended immediately after the message text. The address MAY be the sender's primary address or a subaddress. Implementations SHOULD use whichever address the sender wishes to be replied to.
 
 A recipient who decrypts a message with flag bit 0 set MAY store the sender's address as a contact automatically and send replies to it. A recipient who decrypts a message with flag bit 0 clear receives an anonymous message — no return address is implied.
 
@@ -337,11 +360,17 @@ Nostr-based contact discovery is deferred to a future version. The privacy trade
 
 Rummur messages MUST be sent as standard RingCT transactions. The ring size MUST match the current Monero network default (currently 16 inputs).
 
-### 10.2. Self-send (minimum XMR transfer)
+### 10.2. Minimum XMR transfer to recipient
 
-To minimise the XMR that leaves the sender's wallet, the transaction output SHOULD be sent back to the sender's own address. Only the network fee leaves the wallet permanently. The recipient of the *message* is identified by the encryption key, not the transaction output destination.
+The transaction output MUST be directed to the recipient's address. This ensures the recipient's wallet scanning infrastructure, including the view tag filtering introduced in HF15, correctly identifies the transaction as potentially belonging to them.
 
-Specifically: the `generate_key_derivation` call uses the recipient's view key to encrypt the payload; the RingCT output itself may go to any address, including the sender's own. The recipient scans for the magic byte and decrypts using their view key regardless of where the output is directed.
+**Floor**: The output value MUST NOT be below 1 piconero (1 atomic unit, 10⁻¹² XMR) — the protocol absolute minimum.
+
+**Default**: Implementations SHOULD use a default minimum of **1,000,000 piconero (0.000001 XMR)**. This is safely above the economic dust threshold (the fee cost to spend the output) and is negligible to the sender (~$0.00035 at $350/XMR).
+
+**Configurable**: Implementations MAY expose the minimum output amount as a user- or operator-configurable parameter, provided the configured value never falls below the 1 piconero floor. This allows future adjustment as fee markets and XMR price evolve without a protocol version bump.
+
+The sender's wallet is debited the output amount plus the network fee. The output is spendable by the recipient.
 
 ### 10.3. Output count
 
@@ -350,10 +379,10 @@ Every Monero transaction after hard fork 12 (HF12) requires a minimum of 2 outpu
 ### 10.4. tx_extra requirements
 
 The `tx_extra` field MUST include:
-1. A one-time public transaction key (tag `0x01`) — required for ECDH decryption
+1. A one-time public transaction key (tag `0x01`) — present in every Monero transaction
 2. The Rummur nonce (tag `0x02`) — exactly 255 bytes of content
 
-No additional `tx_extra` fields are required. Additional fields (e.g., additional public keys for subaddresses) are permitted if required by the wallet.
+When the recipient's address is a subaddress, the `tx_extra` field will also contain additional public keys (tag `0x04`), one per transaction output. This is standard Monero wallet behaviour for subaddress transactions and MUST be preserved. The Rummur nonce is encrypted using the tx public key corresponding to the recipient's output (see §5.1).
 
 ### 10.5. Fee
 
@@ -379,26 +408,34 @@ for each transaction tx in block:
     1. Extract tx_pk from tx.extra (tag 0x01)
        If not present: skip tx
 
-    2. Compute derivation = generate_key_derivation(tx_pk, view_sk)
-       (Uses recipient's private view key)
+    2. Extract additional_tx_pks from tx.extra (tag 0x04) if present
+       (Present when transaction outputs include one or more subaddress outputs)
 
-    3. For each nonce field in tx.extra (tag 0x02):
+    3. Build candidate_pks = [tx_pk] + additional_tx_pks
+       (Try all candidates; the encrypting key may be in either location)
+
+    4. For each nonce field in tx.extra (tag 0x02):
        a. If nonce length != 255: skip
        b. If nonce[0] != 0x4D: skip       // wrong magic
        c. Parse version_flags = nonce[1]
        d. version = version_flags >> 4
        e. If version not recognised: skip   // forward compatibility
-       f. Generate keystream from derivation (see §5.2)
-       g. plaintext = nonce[10..254] XOR keystream[0..244]
-       h. If plaintext[0] not a recognised payload_type: skip
-       i. Parse payload per §6
-       j. Store thread_nonce = nonce[2..9]
-       k. Deliver message to application layer
 
-    4. Advance to next transaction
+       f. For each candidate in candidate_pks:
+          i.  derivation = generate_key_derivation(candidate, view_sk)
+          ii. Generate keystream from derivation (see §5.2)
+          iii. plaintext = nonce[10..254] XOR keystream[0..244]
+          iv. If plaintext[0] is a recognised payload_type: proceed to (g)
+               otherwise: try next candidate
+
+       g. Parse payload per §6
+       h. Store thread_nonce = nonce[2..9]
+       i. Deliver message to application layer
+
+    5. Advance to next transaction
 ```
 
-The view tag mechanism (Monero HF15) MAY be used to skip transactions that do not match the recipient's view tag before performing the full derivation. This provides approximately 40% scanning speedup. Implementations SHOULD use view tags when available.
+The view tag mechanism (Monero HF15) SHOULD be used to pre-filter transactions before attempting decryption. Because the transaction output is directed to the recipient (§10.2), the view tag is computed from the recipient's derivation and provides approximately 40% scanning speedup. Implementations SHOULD use view tags when available.
 
 Scanning is performed by the recipient's node or wallet. No third party is required to scan on the recipient's behalf, though an optional self-hosted push proxy MAY be used — see `PLAN.md`.
 
