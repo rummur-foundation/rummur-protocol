@@ -1,0 +1,74 @@
+[
+{
+  "directory": "/Users/paul/src/rummur/rummur-protocol/build/third_party/monero-crypto",
+  "command": "/usr/bin/cc  -I/Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto -g -std=gnu11 -arch arm64 -Wno-unused-variable -Wno-unused-parameter -Wno-unused-function -o CMakeFiles/monero-crypto.dir/crypto-ops.c.o -c /Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto/crypto-ops.c",
+  "file": "/Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto/crypto-ops.c",
+  "output": "third_party/monero-crypto/CMakeFiles/monero-crypto.dir/crypto-ops.c.o"
+},
+{
+  "directory": "/Users/paul/src/rummur/rummur-protocol/build/third_party/monero-crypto",
+  "command": "/usr/bin/cc  -I/Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto -g -std=gnu11 -arch arm64 -Wno-unused-variable -Wno-unused-parameter -Wno-unused-function -o CMakeFiles/monero-crypto.dir/crypto-ops-data.c.o -c /Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto/crypto-ops-data.c",
+  "file": "/Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto/crypto-ops-data.c",
+  "output": "third_party/monero-crypto/CMakeFiles/monero-crypto.dir/crypto-ops-data.c.o"
+},
+{
+  "directory": "/Users/paul/src/rummur/rummur-protocol/build/third_party/monero-crypto",
+  "command": "/usr/bin/cc  -I/Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto -g -std=gnu11 -arch arm64 -Wno-unused-variable -Wno-unused-parameter -Wno-unused-function -o CMakeFiles/monero-crypto.dir/keccak.c.o -c /Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto/keccak.c",
+  "file": "/Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto/keccak.c",
+  "output": "third_party/monero-crypto/CMakeFiles/monero-crypto.dir/keccak.c.o"
+},
+{
+  "directory": "/Users/paul/src/rummur/rummur-protocol/build/third_party/monero-crypto",
+  "command": "/usr/bin/cc  -I/Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto -g -std=gnu11 -arch arm64 -Wno-unused-variable -Wno-unused-parameter -Wno-unused-function -o CMakeFiles/monero-crypto.dir/memwipe.c.o -c /Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto/memwipe.c",
+  "file": "/Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto/memwipe.c",
+  "output": "third_party/monero-crypto/CMakeFiles/monero-crypto.dir/memwipe.c.o"
+},
+{
+  "directory": "/Users/paul/src/rummur/rummur-protocol/build/src",
+  "command": "/usr/bin/c++  -I/Users/paul/src/rummur/rummur-protocol/src -I/Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto -g -std=gnu++17 -arch arm64 -Wall -Wextra -o CMakeFiles/xmrmsg.dir/address.cpp.o -c /Users/paul/src/rummur/rummur-protocol/src/address.cpp",
+  "file": "/Users/paul/src/rummur/rummur-protocol/src/address.cpp",
+  "output": "src/CMakeFiles/xmrmsg.dir/address.cpp.o"
+},
+{
+  "directory": "/Users/paul/src/rummur/rummur-protocol/build/src",
+  "command": "/usr/bin/c++  -I/Users/paul/src/rummur/rummur-protocol/src -I/Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto -g -std=gnu++17 -arch arm64 -Wall -Wextra -o CMakeFiles/xmrmsg.dir/crypto.cpp.o -c /Users/paul/src/rummur/rummur-protocol/src/crypto.cpp",
+  "file": "/Users/paul/src/rummur/rummur-protocol/src/crypto.cpp",
+  "output": "src/CMakeFiles/xmrmsg.dir/crypto.cpp.o"
+},
+{
+  "directory": "/Users/paul/src/rummur/rummur-protocol/build/src",
+  "command": "/usr/bin/c++  -I/Users/paul/src/rummur/rummur-protocol/src -I/Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto -g -std=gnu++17 -arch arm64 -Wall -Wextra -o CMakeFiles/xmrmsg.dir/decode.cpp.o -c /Users/paul/src/rummur/rummur-protocol/src/decode.cpp",
+  "file": "/Users/paul/src/rummur/rummur-protocol/src/decode.cpp",
+  "output": "src/CMakeFiles/xmrmsg.dir/decode.cpp.o"
+},
+{
+  "directory": "/Users/paul/src/rummur/rummur-protocol/build/src",
+  "command": "/usr/bin/c++  -I/Users/paul/src/rummur/rummur-protocol/src -I/Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto -g -std=gnu++17 -arch arm64 -Wall -Wextra -o CMakeFiles/xmrmsg.dir/encode.cpp.o -c /Users/paul/src/rummur/rummur-protocol/src/encode.cpp",
+  "file": "/Users/paul/src/rummur/rummur-protocol/src/encode.cpp",
+  "output": "src/CMakeFiles/xmrmsg.dir/encode.cpp.o"
+},
+{
+  "directory": "/Users/paul/src/rummur/rummur-protocol/build/src",
+  "command": "/usr/bin/c++  -I/Users/paul/src/rummur/rummur-protocol/src -I/Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto -g -std=gnu++17 -arch arm64 -Wall -Wextra -o CMakeFiles/xmrmsg.dir/monero_base58.cpp.o -c /Users/paul/src/rummur/rummur-protocol/src/monero_base58.cpp",
+  "file": "/Users/paul/src/rummur/rummur-protocol/src/monero_base58.cpp",
+  "output": "src/CMakeFiles/xmrmsg.dir/monero_base58.cpp.o"
+},
+{
+  "directory": "/Users/paul/src/rummur/rummur-protocol/build/src",
+  "command": "/usr/bin/c++  -I/Users/paul/src/rummur/rummur-protocol/src -I/Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto -g -std=gnu++17 -arch arm64 -Wall -Wextra -o CMakeFiles/xmrmsg.dir/wallet.cpp.o -c /Users/paul/src/rummur/rummur-protocol/src/wallet.cpp",
+  "file": "/Users/paul/src/rummur/rummur-protocol/src/wallet.cpp",
+  "output": "src/CMakeFiles/xmrmsg.dir/wallet.cpp.o"
+},
+{
+  "directory": "/Users/paul/src/rummur/rummur-protocol/build/tests",
+  "command": "/usr/bin/c++  -I/Users/paul/src/rummur/rummur-protocol/src -I/Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto -g -std=gnu++17 -arch arm64 -o CMakeFiles/test_core.dir/test_core.cpp.o -c /Users/paul/src/rummur/rummur-protocol/tests/test_core.cpp",
+  "file": "/Users/paul/src/rummur/rummur-protocol/tests/test_core.cpp",
+  "output": "tests/CMakeFiles/test_core.dir/test_core.cpp.o"
+},
+{
+  "directory": "/Users/paul/src/rummur/rummur-protocol/build/tests",
+  "command": "/usr/bin/c++  -I/Users/paul/src/rummur/rummur-protocol/src -I/Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto -g -std=gnu++17 -arch arm64 -o CMakeFiles/generate_test_vectors.dir/generate_test_vectors.cpp.o -c /Users/paul/src/rummur/rummur-protocol/tests/generate_test_vectors.cpp",
+  "file": "/Users/paul/src/rummur/rummur-protocol/tests/generate_test_vectors.cpp",
+  "output": "tests/CMakeFiles/generate_test_vectors.dir/generate_test_vectors.cpp.o"
+}
+]

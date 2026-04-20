@@ -1,0 +1,16 @@
+/Users/paul/src/rummur/rummur-protocol/build/CMakeFiles/test.dir
+/Users/paul/src/rummur/rummur-protocol/build/CMakeFiles/edit_cache.dir
+/Users/paul/src/rummur/rummur-protocol/build/CMakeFiles/rebuild_cache.dir
+/Users/paul/src/rummur/rummur-protocol/build/third_party/monero-crypto/CMakeFiles/monero-crypto.dir
+/Users/paul/src/rummur/rummur-protocol/build/third_party/monero-crypto/CMakeFiles/test.dir
+/Users/paul/src/rummur/rummur-protocol/build/third_party/monero-crypto/CMakeFiles/edit_cache.dir
+/Users/paul/src/rummur/rummur-protocol/build/third_party/monero-crypto/CMakeFiles/rebuild_cache.dir
+/Users/paul/src/rummur/rummur-protocol/build/src/CMakeFiles/xmrmsg.dir
+/Users/paul/src/rummur/rummur-protocol/build/src/CMakeFiles/test.dir
+/Users/paul/src/rummur/rummur-protocol/build/src/CMakeFiles/edit_cache.dir
+/Users/paul/src/rummur/rummur-protocol/build/src/CMakeFiles/rebuild_cache.dir
+/Users/paul/src/rummur/rummur-protocol/build/tests/CMakeFiles/test_core.dir
+/Users/paul/src/rummur/rummur-protocol/build/tests/CMakeFiles/generate_test_vectors.dir
+/Users/paul/src/rummur/rummur-protocol/build/tests/CMakeFiles/test.dir
+/Users/paul/src/rummur/rummur-protocol/build/tests/CMakeFiles/edit_cache.dir
+/Users/paul/src/rummur/rummur-protocol/build/tests/CMakeFiles/rebuild_cache.dir
