@@ -11,28 +11,6 @@
 #include "internal.h"
 #include <cstring>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-#include "crypto-ops.h"  // ge_p3, ge_scalarmult, ge_mul8, sc_reduce32, ...
-#include "keccak.h"      // keccak()
-#include "memwipe.h"     // memwipe()
-#ifdef __cplusplus
-}
-#endif
-
-// ─── Platform random ──────────────────────────────────────────────────────────
-// arc4random_buf is available on macOS, BSDs, and glibc >= 2.36 (Linux).
-// For older Linux, fall back to getrandom(2) (available since kernel 3.17).
-
-#if defined(__linux__) && !defined(__GLIBC_PREREQ)
-#  include <sys/random.h>
-#  define PLATFORM_RANDOM(buf, len)  getrandom((buf), (len), 0)
-#else
-#  include <stdlib.h>
-#  define PLATFORM_RANDOM(buf, len)  arc4random_buf((buf), (len))
-#endif
-
 // ─── xmrmsg_derive ────────────────────────────────────────────────────────────
 //
 // Computes: out = 8 × sec_key × pub_key
@@ -120,6 +98,27 @@ xmrmsg_result_t xmrmsg_secret_key_to_public_key(
     ge_p3 point;
     ge_scalarmult_base(&point, sec_key);
     ge_p3_tobytes(out_pk, &point);
+
+    return XMRMSG_OK;
+}
+
+// ─── xmrmsg_scalarmult ────────────────────────────────────────────────────────
+
+xmrmsg_result_t xmrmsg_scalarmult(
+    const uint8_t sec_key[XMRMSG_KEY_SIZE],
+    const uint8_t pub_key[XMRMSG_KEY_SIZE],
+    uint8_t       out_pk[XMRMSG_KEY_SIZE])
+{
+    if (!sec_key || !pub_key || !out_pk)
+        return XMRMSG_ERR_INVALID_ARG;
+
+    ge_p3 point;
+    if (ge_frombytes_vartime(&point, pub_key) != 0)
+        return XMRMSG_ERR_CRYPTO;
+
+    ge_p2 result;
+    ge_scalarmult(&result, sec_key, &point);
+    ge_tobytes(out_pk, &result);
 
     return XMRMSG_OK;
 }

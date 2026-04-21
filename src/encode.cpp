@@ -64,7 +64,7 @@ xmrmsg_result_t xmrmsg_encode_nonce(
     uint8_t plaintext[XMRMSG_CIPHERTEXT_SIZE];
 
     // Fill entire buffer with random padding first — ensures tail is never zero
-    crypto::rand(XMRMSG_CIPHERTEXT_SIZE, plaintext);
+    PLATFORM_RANDOM(plaintext, XMRMSG_CIPHERTEXT_SIZE);
 
     size_t pos = 0;
     plaintext[pos++] = XMRMSG_PAYLOAD_TEXT;
@@ -88,7 +88,7 @@ xmrmsg_result_t xmrmsg_encode_nonce(
     if (thread_nonce_in) {
         memcpy(thread_nonce, thread_nonce_in, XMRMSG_THREAD_NONCE_SIZE);
     } else {
-        crypto::rand(XMRMSG_THREAD_NONCE_SIZE, thread_nonce);
+        PLATFORM_RANDOM(thread_nonce, XMRMSG_THREAD_NONCE_SIZE);
     }
 
     // ── Assemble 255-byte nonce ───────────────────────────────────────────────

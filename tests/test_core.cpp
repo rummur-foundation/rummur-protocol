@@ -35,11 +35,17 @@ static void run_test(const char *name, void (*fn)()) {
 // This address was generated from a known seed on stagenet — replace with
 // your own test address once the local environment is running.
 static const char *STAGENET_ADDR =
-    "5BLhHNxbdQVQLmzw24Ew2kCmpFyBtRMKwVv7JK8rmXMC1piGLvzJMVmf8HRMDpMTCxGpJHCXa7P3MJ5KzNkSwA2MUhFqtw";
+    "591vyBazs1675Q3SXLUTFN2LSdnnrjWXF92y27KHL1nLNkmYZUDYhK8VA6ZXkM96RS6h3pDoJWZwuPHFSg7r2CnQ2pND5sj";
 
-// A stagenet subaddress for the same wallet at index (0,1)
+// Stagenet subaddress for the same wallet at index (0,1), derived from TEST_VIEW_SK+TEST_TX_SK
 static const char *STAGENET_SUBADDR =
-    "73b4gGGSVxEMfFWYzQSxkBXJzRJJCNZLFAbSs8uAkNBXBvPkMXzJVoEgDhFJGxLhBeA9AQXQKxckKxJvBtJAJ7P2rBkNBj";
+    "7BdbAHgZ37kG5Dk6bx9em17jBhYfaDUstWDkWPTCj8BKRyVEXazLyiAWZeTSmF15jbSinj5KSCi9cReM6VhFReEtSdpYAiK";
+
+// Subaddress spend public key D — needed to compute tx_pk = TEST_TX_SK * D for decode
+static const uint8_t STAGENET_SUBADDR_D[32] = {
+    0xF7,0xAC,0xA3,0xF2,0xAC,0x55,0x7F,0x5A,0x1D,0x36,0x09,0x77,0xF3,0x81,0xDC,0x28,
+    0x38,0x52,0x7E,0xA4,0x82,0xD8,0xC3,0xAE,0xB1,0xA6,0x80,0x5C,0xEF,0x3B,0xD2,0x95
+};
 
 // Known tx_sk for deterministic tests (all-0x55 — never use outside tests)
 static const uint8_t TEST_TX_SK[32] = {
@@ -195,14 +201,19 @@ static void do_roundtrip(const char *msg_text,
     assert(nonce[0] == XMRMSG_MAGIC);
 
     // Compute the tx_pk that the recipient will see:
-    // For a standard address, tx_pk = tx_sk * G
+    //   Standard address: tx_pk = tx_sk * G
+    //   Subaddress:       tx_pk = tx_sk * D  (subaddr spend pk, not base point G)
     uint8_t tx_pk[32];
-    assert(xmrmsg_secret_key_to_public_key(TEST_TX_SK, tx_pk) == XMRMSG_OK);
+    if (use_subaddr_recipient) {
+        assert(xmrmsg_scalarmult(TEST_TX_SK, STAGENET_SUBADDR_D, tx_pk) == XMRMSG_OK);
+    } else {
+        assert(xmrmsg_secret_key_to_public_key(TEST_TX_SK, tx_pk) == XMRMSG_OK);
+    }
 
     // Decode — extract view_sk from the test address for decryption
     // (In a real scenario the recipient's wallet holds view_sk.
     //  Here we use TEST_VIEW_SK directly since STAGENET_ADDR was generated from it.)
-    const uint8_t *candidates[1] = { tx_pk };
+    const uint8_t (*candidates)[XMRMSG_KEY_SIZE] = { &tx_pk };
     xmrmsg_message_t msg;
     memset(&msg, 0, sizeof(msg));
     rc = xmrmsg_decode_nonce(nonce, TEST_VIEW_SK, candidates, 1, &msg);
@@ -296,7 +307,7 @@ TEST(encode_errors) {
 TEST(decode_errors) {
     uint8_t nonce[255] = {0};
     const uint8_t tx_pk[32] = {0};
-    const uint8_t *candidates[1] = { tx_pk };
+    const uint8_t (*candidates)[XMRMSG_KEY_SIZE] = { &tx_pk };
     xmrmsg_message_t msg;
 
     assert(xmrmsg_decode_nonce(NULL,  TEST_VIEW_SK, candidates, 1, &msg)
@@ -342,7 +353,7 @@ TEST(wrong_key_decrypt_failed) {
     memset(wrong_view_sk, 0x11, 32);
     wrong_view_sk[31] = 0x04;
 
-    const uint8_t *candidates[1] = { tx_pk };
+    const uint8_t (*candidates)[XMRMSG_KEY_SIZE] = { &tx_pk };
     xmrmsg_message_t msg;
     assert(xmrmsg_decode_nonce(nonce, wrong_view_sk, candidates, 1, &msg)
            == XMRMSG_ERR_DECRYPT_FAILED);

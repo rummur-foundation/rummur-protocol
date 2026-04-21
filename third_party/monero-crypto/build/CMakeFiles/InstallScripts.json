@@ -1,7 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto/build/cmake_install.cmake"
-	],
-	"Parallel" : false
-}

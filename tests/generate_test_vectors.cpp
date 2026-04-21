@@ -123,7 +123,7 @@ static void run_vector(int n, const char *title,
         print_hex("nonce[255]: ", nonce, 255);
 
         // Decode to show plaintext
-        const uint8_t *candidates[1] = { tx_pk };
+        const uint8_t (*candidates)[XMRMSG_KEY_SIZE] = { &tx_pk };
         xmrmsg_message_t decoded;
         memset(&decoded, 0, sizeof(decoded));
         if (xmrmsg_decode_nonce(nonce, TVEC_VIEW_SK, candidates, 1, &decoded) == XMRMSG_OK) {

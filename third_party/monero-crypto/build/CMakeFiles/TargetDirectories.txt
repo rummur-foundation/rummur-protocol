@@ -1,3 +1,0 @@
-/Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto/build/CMakeFiles/monero-crypto.dir
-/Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto/build/CMakeFiles/edit_cache.dir
-/Users/paul/src/rummur/rummur-protocol/third_party/monero-crypto/build/CMakeFiles/rebuild_cache.dir

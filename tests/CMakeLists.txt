@@ -7,6 +7,11 @@ add_test(NAME core COMMAND test_core)
 add_executable(generate_test_vectors generate_test_vectors.cpp)
 target_link_libraries(generate_test_vectors PRIVATE xmrmsg)
 
+# Address generator — computes correct STAGENET_ADDR and STAGENET_SUBADDR
+# constants for test_core.cpp from the known test keys
+add_executable(gen_test_addrs gen_test_addrs.cpp)
+target_link_libraries(gen_test_addrs PRIVATE xmrmsg)
+
 # Fuzz harness — only built when XMRMSG_BUILD_FUZZ=ON with clang
 if(XMRMSG_BUILD_FUZZ)
     if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")

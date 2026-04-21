@@ -1,2 +1,0 @@
-/usr/bin/ar qc libxmrmsg.a CMakeFiles/xmrmsg.dir/address.cpp.o CMakeFiles/xmrmsg.dir/crypto.cpp.o CMakeFiles/xmrmsg.dir/decode.cpp.o CMakeFiles/xmrmsg.dir/encode.cpp.o CMakeFiles/xmrmsg.dir/monero_base58.cpp.o CMakeFiles/xmrmsg.dir/wallet.cpp.o
-/usr/bin/ranlib libxmrmsg.a

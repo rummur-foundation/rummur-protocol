@@ -242,6 +242,24 @@ xmrmsg_result_t xmrmsg_secret_key_to_public_key(
 );
 
 /**
+ * Scalar multiplication on the curve: out = sec × pub  (no cofactor).
+ *
+ * Used by the wallet layer to compute the subaddress transaction public key:
+ *   tx_pk = tx_sk × D   (where D is the subaddress spend public key)
+ *
+ * For standard addresses use xmrmsg_secret_key_to_public_key (sec × G) instead.
+ *
+ * @param sec_key  32-byte scalar.
+ * @param pub_key  32-byte curve point (e.g. a subaddress spend public key D).
+ * @param out_pk   Output: 32-byte result point.
+ */
+xmrmsg_result_t xmrmsg_scalarmult(
+    const uint8_t sec_key[XMRMSG_KEY_SIZE],
+    const uint8_t pub_key[XMRMSG_KEY_SIZE],
+    uint8_t       out_pk[XMRMSG_KEY_SIZE]
+);
+
+/**
  * Generate the 256-byte keystream from a derivation (counter-mode cn_fast_hash).
  *
  * Only the first XMRMSG_CIPHERTEXT_SIZE (245) bytes are used for encryption;

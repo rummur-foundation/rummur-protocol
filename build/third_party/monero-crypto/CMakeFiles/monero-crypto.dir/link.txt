@@ -1,2 +1,0 @@
-/usr/bin/ar qc libmonero-crypto.a "CMakeFiles/monero-crypto.dir/crypto-ops.c.o" "CMakeFiles/monero-crypto.dir/crypto-ops-data.c.o" "CMakeFiles/monero-crypto.dir/keccak.c.o" "CMakeFiles/monero-crypto.dir/memwipe.c.o"
-/usr/bin/ranlib libmonero-crypto.a

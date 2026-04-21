@@ -30,6 +30,19 @@ extern "C" {
 bool monero_base58_decode(const char *enc, size_t enc_len,
                           unsigned char *dec, size_t *dec_len);
 
+/**
+ * Encode raw bytes as a Monero base58 string.
+ *
+ * @param dec      Input bytes.
+ * @param dec_len  Number of input bytes.
+ * @param enc      Output buffer (must hold at least *enc_len bytes incl. NUL).
+ * @param enc_len  On input: capacity of enc. On success: chars written (excl. NUL).
+ *
+ * @return true on success, false if enc is too small.
+ */
+bool monero_base58_encode(const unsigned char *dec, size_t dec_len,
+                          char *enc, size_t *enc_len);
+
 #ifdef __cplusplus
 }
 #endif

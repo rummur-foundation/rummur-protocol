@@ -9,18 +9,32 @@
 #include "monero_base58.h"
 
 // Vendored Monero primitives (pure C — platform-independent)
+// crypto-ops.h and keccak.h are plain C headers; wrap them for C++ linkage.
+// memwipe.h manages its own extern "C" guard (and pulls in C++ templates when
+// compiled as C++), so it must be included outside our extern "C" block.
 #ifdef __cplusplus
 extern "C" {
 #endif
 #include "crypto-ops.h"  // ge_p3, ge_scalarmult, ge_mul8, sc_reduce32, ...
 #include "keccak.h"      // keccak()
-#include "memwipe.h"     // memwipe()
 #ifdef __cplusplus
 }
 #endif
+#include "memwipe.h"     // memwipe() — has its own extern "C" / C++ guards
 
 #include <cstring>
 #include <cstdlib>
+
+// ─── Platform random ──────────────────────────────────────────────────────────
+// arc4random_buf: macOS, BSDs, glibc >= 2.36.
+// For older Linux fall back to getrandom(2) (kernel 3.17+).
+#if defined(__linux__) && !defined(__GLIBC_PREREQ)
+#  include <sys/random.h>
+#  define PLATFORM_RANDOM(buf, len)  getrandom((buf), (len), 0)
+#else
+#  include <stdlib.h>
+#  define PLATFORM_RANDOM(buf, len)  arc4random_buf((buf), (len))
+#endif
 
 // ─── Parsed Monero address ────────────────────────────────────────────────────
 

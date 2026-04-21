@@ -86,6 +86,61 @@ static bool decode_block(const char   *enc, size_t enc_len,
     return true;
 }
 
+// ─── Encode one block ─────────────────────────────────────────────────────────
+//
+// dec[0..dec_len-1] → enc[0..enc_len-1]  (big-endian, zero-padded on the left)
+
+static bool encode_block(const unsigned char *dec, size_t dec_len,
+                         char *enc, size_t enc_len)
+{
+    if (dec_len < 1 || dec_len > (size_t)FULL_DEC) return false;
+    if (enc_len < 1 || enc_len > (size_t)FULL_ENC) return false;
+
+    __uint128_t num = 0;
+    for (size_t i = 0; i < dec_len; i++) {
+        num = (num << 8) | dec[i];
+    }
+
+    // Fill from the right — pad unused leading positions with ALPHABET[0] = '1'
+    for (int i = (int)enc_len - 1; i >= 0; i--) {
+        enc[i] = ALPHABET[num % 58];
+        num /= 58;
+    }
+    return num == 0; // should be 0 if value fits in enc_len base-58 digits
+}
+
+// ─── Public encode ────────────────────────────────────────────────────────────
+
+bool monero_base58_encode(const unsigned char *dec, size_t dec_len,
+                          char *enc, size_t *enc_len)
+{
+    if (!dec || !enc || !enc_len) return false;
+    if (dec_len == 0) { *enc_len = 0; enc[0] = '\0'; return true; }
+
+    size_t full_blocks  = dec_len / FULL_DEC;
+    size_t tail_dec_len = dec_len % FULL_DEC;
+    size_t tail_enc_len = (tail_dec_len == 0) ? 0 : (size_t)dec_to_enc[tail_dec_len];
+
+    size_t expected_enc = full_blocks * FULL_ENC + tail_enc_len;
+    if (*enc_len < expected_enc + 1) return false;
+
+    for (size_t b = 0; b < full_blocks; b++) {
+        if (!encode_block(dec + b * FULL_DEC, FULL_DEC,
+                          enc + b * FULL_ENC, FULL_ENC))
+            return false;
+    }
+
+    if (tail_dec_len > 0) {
+        if (!encode_block(dec + full_blocks * FULL_DEC, tail_dec_len,
+                          enc + full_blocks * FULL_ENC, tail_enc_len))
+            return false;
+    }
+
+    enc[expected_enc] = '\0';
+    *enc_len = expected_enc;
+    return true;
+}
+
 // ─── Public decode ────────────────────────────────────────────────────────────
 
 bool monero_base58_decode(const char    *enc, size_t enc_len,
