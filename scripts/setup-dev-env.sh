@@ -80,6 +80,7 @@ VENDOR_FILES=(
     "src/crypto/crypto-ops.h"
     "src/crypto/crypto-ops.c"
     "src/crypto/crypto-ops-data.c"
+    "src/crypto/hash-ops.h"            # needed by keccak.c
     "src/crypto/keccak.h"
     "src/crypto/keccak.c"
     "contrib/epee/include/memwipe.h"   # lives in epee, not src/crypto

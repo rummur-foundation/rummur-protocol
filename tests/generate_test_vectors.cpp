@@ -19,17 +19,17 @@
 // These are the canonical inputs for PROTOCOL.md §13. Do not change them
 // after they are published — changing them invalidates all prior test vectors.
 
-// view_sk: chosen so that a real Monero address can be derived from it.
-// Replace [TBD] bytes with the actual key once the wallet environment is running.
-// For now this is a placeholder; the vector output is marked [PENDING].
+// view_sk: all-0xAA with a valid scalar tail byte.
+// The corresponding stagenet address (TVEC_ADDR below) was derived from this key
+// via gen_test_addrs — no live wallet required.
 static const uint8_t TVEC_VIEW_SK[32] = {
-    // [TBD] — replace with the actual view_sk for the test wallet on stagenet
-    // Run: monero-wallet-cli --stagenet → viewkey → paste here
-    0x00
+    0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,
+    0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,
+    0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,
+    0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0x04
 };
 
-// tx_sk: all-0x42 bytes with a valid scalar tail (last byte ensures it's
-// a valid ed25519 scalar). Fully deterministic.
+// tx_sk: all-0x42 bytes with a valid scalar tail. Fully deterministic.
 static const uint8_t TVEC_TX_SK[32] = {
     0x42,0x42,0x42,0x42,0x42,0x42,0x42,0x42,
     0x42,0x42,0x42,0x42,0x42,0x42,0x42,0x42,
@@ -42,9 +42,11 @@ static const uint8_t TVEC_THREAD_NONCE[8] = {
     0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
 };
 
-// Stagenet test address — must match the wallet whose view_sk is TVEC_VIEW_SK
-// [TBD] — paste your test wallet's primary stagenet address here
-static const char *TVEC_ADDR = "[TBD: stagenet address for TVEC_VIEW_SK]";
+// Stagenet address whose view public key = TVEC_VIEW_SK × G.
+// Spend public key = TVEC_TX_SK × G (all-0x55, last byte 0x04 — test-only key).
+// Generated offline by tests/gen_test_addrs. Prefix 24 = stagenet primary.
+static const char *TVEC_ADDR =
+    "591vyBazs1675Q3SXLUTFN2LSdnnrjWXF92y27KHL1nLNkmYZUDYhK8VA6ZXkM96RS6h3pDoJWZwuPHFSg7r2CnQ2pND5sj";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -164,8 +166,6 @@ int main(void) {
                XMRMSG_FLAG_SENDER_ADDR | XMRMSG_FLAG_IS_REPLY, TVEC_ADDR);
 
     printf("\n---\n");
-    printf("\n*Test vectors are PENDING until `TVEC_VIEW_SK` and `TVEC_ADDR` in\n");
-    printf("`tests/generate_test_vectors.cpp` are set to the stagenet test wallet values.*\n");
 
     return 0;
 }
