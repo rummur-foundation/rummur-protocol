@@ -14,6 +14,7 @@ This repository contains the protocol specification, the core C++ library (`libx
 - [Goals](#goals)
 - [Assumptions](#assumptions)
 - [How It Works](#how-it-works)
+- [Library Internals](#library-internals)
 - [Clients](#clients)
 - [This Repo](#this-repo)
 - [Current Status](#current-status)
@@ -157,6 +158,111 @@ For full wire format, encryption scheme, flag definitions, and test vectors, see
 
 ---
 
+## Library Internals
+
+The library is organised in five layers. Reading them bottom-up mirrors the dependency order; reading them top-down mirrors the message flow.
+
+### Layer 1 — Address parsing (`src/address.cpp`)
+
+A Monero address is a 95-character base58 string that encodes 69 bytes:
+
+```
+[0]      prefix byte   (identifies network and address type)
+[1..32]  spend public key
+[33..64] view public key
+[65..68] checksum: first 4 bytes of keccak-256 of the above
+```
+
+`xmrmsg_parse_address` decodes the string, classifies the prefix (mainnet / stagenet / testnet, primary / subaddress), and verifies the checksum. All downstream code works with the extracted raw keys — the address string is never consulted again.
+
+### Layer 2 — Crypto primitives (`src/crypto.cpp`)
+
+Three operations power the protocol:
+
+**ECDH derivation** (`xmrmsg_derive`): computes `out = 8 × sec_key × pub_key` — Monero's `generate_key_derivation`. The cofactor-8 multiplication maps the point into the prime-order subgroup. Sender calls it as `derive(recipient_view_pk, tx_sk)`; recipient calls it as `derive(tx_pk, view_sk)`. Both produce the same derivation because scalar multiplication commutes.
+
+**Keystream generation** (`xmrmsg_keystream`): counter-mode Keccak-256 over the shared derivation:
+```
+for i in 0..7:
+    output[i*32 .. i*32+32] = keccak(derivation || 0x4D || i)
+```
+Produces 256 bytes. `0x4D` is the protocol magic byte, used here as a domain separator.
+
+**Curve utilities** (`xmrmsg_scalarmult`, `xmrmsg_secret_key_to_public_key`): raw point operations used to compute subaddress transaction keys (`tx_pk = tx_sk × D`, where D is the subaddress spend key, rather than the base point G used for primary addresses).
+
+All operations sit directly on the vendored Monero `crypto-ops.h` and `keccak.h` — there is no dependency on Monero's `crypto.cpp`.
+
+### Layer 3 — Encoding (`src/encode.cpp`)
+
+`xmrmsg_encode_nonce` builds the 255-byte nonce:
+
+```
+[0]       magic = 0x4D
+[1]       version_flags = (version << 4) | flags
+[2..9]    thread_nonce (8 bytes — conversation grouping hint)
+[10..254] ciphertext   (245 bytes)
+```
+
+The 245-byte plaintext before encryption:
+
+```
+[0]       payload_type = 0x01 (text)
+[1..2]    msg_len (big-endian uint16)
+[3..N]    message bytes
+[N..N+95] sender address (only present when SENDER_ADDR flag is set)
+[rest]    random padding
+```
+
+The buffer is filled with random bytes first, then the structured fields are written on top — so the tail is never predictably zero. Encryption is XOR with the first 245 bytes of the keystream.
+
+For subaddress recipients the transaction key is computed as `tx_pk = tx_sk × D`; for primary addresses it is `tx_pk = tx_sk × G`. The encode path handles both transparently.
+
+### Layer 4 — Decoding (`src/decode.cpp`)
+
+`xmrmsg_decode_nonce` is the recipient side. It accepts a list of candidate tx public keys because a transaction can have multiple outputs, each with its own key:
+
+1. Check magic byte → `XMRMSG_ERR_WRONG_MAGIC`
+2. Check version nibble → `XMRMSG_ERR_UNKNOWN_VERSION`
+3. For each candidate tx public key:
+   - Derive `derivation = derive(tx_pk_candidate, view_sk)`
+   - Generate keystream, XOR ciphertext → plaintext
+   - Check `plaintext[0] == 0x01` — a wrong key produces random garbage here, so a mismatch means try the next candidate
+   - Validate `msg_len` fits within 245 bytes
+   - Allocate and populate `xmrmsg_message_t`
+4. If no candidate succeeded → `XMRMSG_ERR_DECRYPT_FAILED`
+
+`XMRMSG_ERR_DECRYPT_FAILED` is the expected result for every transaction that is not addressed to the scanning wallet — not an error condition in normal operation.
+
+### Layer 5 — Wallet (`src/wallet.cpp`)
+
+`xmrmsg_wallet_from_keys` is the only function with real logic in Phase 1: it allocates the wallet struct, validates the address, and copies the keys. Passing `spend_sk = NULL` creates a view-only wallet; `xmrmsg_build_tx` returns `XMRMSG_ERR_VIEW_ONLY` for those. All transaction construction and broadcast functions are Phase 2 stubs pending libwallet integration.
+
+### Test suite (`tests/test_core.cpp`)
+
+37 tests cover every public API function. Each test is registered individually with ctest:
+
+```bash
+# Run all tests
+ctest --test-dir build --output-on-failure
+
+# Run a subset by name pattern
+ctest --test-dir build -R roundtrip
+
+# Run a single test
+ctest --test-dir build -R derive_symmetry
+```
+
+The test binary also runs standalone:
+
+```bash
+./build/tests/test_core           # all 37
+./build/tests/test_core --run derive_symmetry  # one by name
+```
+
+No live Monero node is required — the unit tests are purely cryptographic and use hardcoded stagenet addresses as test fixtures.
+
+---
+
 ## Clients
 
 All clients share the same C++ core library (`libxmrmsg`) from this repo.
@@ -207,7 +313,15 @@ The wire format, byte layout, flag definitions, ECDH keystream derivation, and t
 
 **Phase 1 — Core C++ library (`libxmrmsg`).**
 
-The protocol spec is final. The C API header (`src/libxmrmsg.h`) is written. Implementation is in progress.
+The nonce-level API is complete and fully tested:
+
+- Address parsing and validation (all three networks, primary and subaddress)
+- ECDH key derivation and keystream generation
+- Nonce encoding and decoding (all flag combinations, subaddress recipients, max-length messages)
+- Wallet context creation and view-only enforcement
+- 37 unit tests, all passing — run with `ctest --test-dir build --output-on-failure`
+
+Transaction construction and broadcast (`xmrmsg_build_tx`, `xmrmsg_broadcast_tx`) are Phase 2 stubs pending libwallet integration.
 
 Phase 0 (protocol specification) is complete and open for community review. Open an issue against any requirement you disagree with.
 

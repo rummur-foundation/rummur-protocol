@@ -18,13 +18,15 @@
 static int g_passed = 0;
 static int g_failed = 0;
 
-#define TEST(name)  static void test_##name()
-#define RUN(name)   run_test(#name, test_##name)
+#define TEST(name)   static void test_##name()
+#define ENTRY(name)  { #name, test_##name }
 
-static void run_test(const char *name, void (*fn)()) {
-    printf("  %-60s", name);
+struct test_entry { const char *name; void (*fn)(); };
+
+static void run_one(const test_entry &t) {
+    printf("  %-60s", t.name);
     fflush(stdout);
-    fn();
+    t.fn();
     printf("PASS\n");
     g_passed++;
 }
@@ -634,47 +636,66 @@ TEST(tx_id_and_broadcast_null_args) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-int main(void) {
+static const test_entry ALL_TESTS[] = {
+    ENTRY(constants),
+    ENTRY(version_string),
+    ENTRY(validate_address_primary),
+    ENTRY(validate_address_subaddress),
+    ENTRY(validate_address_invalid),
+    ENTRY(is_subaddress_invalid),
+    ENTRY(derive_basic),
+    ENTRY(derive_symmetry),
+    ENTRY(keystream_null_args),
+    ENTRY(keystream_length_and_determinism),
+    ENTRY(keystream_different_derivations_differ),
+    ENTRY(generate_tx_keypair_null_args),
+    ENTRY(generate_tx_keypair_consistency),
+    ENTRY(generate_tx_keypair_random),
+    ENTRY(scalarmult_null_args),
+    ENTRY(scalarmult_vs_base_point),
+    ENTRY(roundtrip_anonymous),
+    ENTRY(roundtrip_with_sender),
+    ENTRY(roundtrip_reply),
+    ENTRY(roundtrip_subaddress_recipient),
+    ENTRY(roundtrip_max_message_anon),
+    ENTRY(roundtrip_max_message_with_sender),
+    ENTRY(roundtrip_empty_message),
+    ENTRY(encode_errors),
+    ENTRY(encode_invalid_sender_address),
+    ENTRY(decode_errors),
+    ENTRY(decode_multiple_candidates_right_key_last),
+    ENTRY(wrong_key_decrypt_failed),
+    ENTRY(encode_different_random_nonces),
+    ENTRY(free_message_null_safe),
+    ENTRY(wallet_from_keys_null_args),
+    ENTRY(wallet_from_keys_invalid_address),
+    ENTRY(wallet_from_keys_view_only),
+    ENTRY(wallet_from_keys_with_spend_key),
+    ENTRY(build_tx_null_args),
+    ENTRY(build_tx_bad_amount),
+    ENTRY(tx_id_and_broadcast_null_args),
+};
+static const size_t NUM_TESTS = sizeof(ALL_TESTS) / sizeof(ALL_TESTS[0]);
+
+int main(int argc, char **argv) {
+    // --run <name>  →  run exactly one named test (for ctest integration)
+    if (argc == 3 && strcmp(argv[1], "--run") == 0) {
+        const char *target = argv[2];
+        for (size_t i = 0; i < NUM_TESTS; i++) {
+            if (strcmp(ALL_TESTS[i].name, target) == 0) {
+                run_one(ALL_TESTS[i]);
+                printf("\n1 passed\n");
+                return 0;
+            }
+        }
+        fprintf(stderr, "unknown test: %s\n", target);
+        return 1;
+    }
+
     printf("libxmrmsg unit tests\n");
     printf("====================\n\n");
-
-    RUN(constants);
-    RUN(version_string);
-    RUN(validate_address_primary);
-    RUN(validate_address_subaddress);
-    RUN(validate_address_invalid);
-    RUN(is_subaddress_invalid);
-    RUN(derive_basic);
-    RUN(derive_symmetry);
-    RUN(keystream_null_args);
-    RUN(keystream_length_and_determinism);
-    RUN(keystream_different_derivations_differ);
-    RUN(generate_tx_keypair_null_args);
-    RUN(generate_tx_keypair_consistency);
-    RUN(generate_tx_keypair_random);
-    RUN(scalarmult_null_args);
-    RUN(scalarmult_vs_base_point);
-    RUN(roundtrip_anonymous);
-    RUN(roundtrip_with_sender);
-    RUN(roundtrip_reply);
-    RUN(roundtrip_subaddress_recipient);
-    RUN(roundtrip_max_message_anon);
-    RUN(roundtrip_max_message_with_sender);
-    RUN(roundtrip_empty_message);
-    RUN(encode_errors);
-    RUN(encode_invalid_sender_address);
-    RUN(decode_errors);
-    RUN(decode_multiple_candidates_right_key_last);
-    RUN(wrong_key_decrypt_failed);
-    RUN(encode_different_random_nonces);
-    RUN(free_message_null_safe);
-    RUN(wallet_from_keys_null_args);
-    RUN(wallet_from_keys_invalid_address);
-    RUN(wallet_from_keys_view_only);
-    RUN(wallet_from_keys_with_spend_key);
-    RUN(build_tx_null_args);
-    RUN(build_tx_bad_amount);
-    RUN(tx_id_and_broadcast_null_args);
+    for (size_t i = 0; i < NUM_TESTS; i++)
+        run_one(ALL_TESTS[i]);
     printf("\n%d passed", g_passed);
     if (g_failed) printf(", %d FAILED", g_failed);
     printf("\n");
