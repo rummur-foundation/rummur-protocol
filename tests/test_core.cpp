@@ -374,6 +374,264 @@ TEST(encode_different_random_nonces) {
     assert(memcmp(nonce1 + 2, nonce2 + 2, 8) != 0);
 }
 
+// ─── Version string ───────────────────────────────────────────────────────────
+
+TEST(version_string) {
+    const char *v = xmrmsg_version_string();
+    assert(v != NULL);
+    assert(v[0] != '\0');
+}
+
+// ─── generate_tx_keypair ──────────────────────────────────────────────────────
+
+TEST(generate_tx_keypair_null_args) {
+    uint8_t sk[32], pk[32];
+    assert(xmrmsg_generate_tx_keypair(NULL, pk) == XMRMSG_ERR_INVALID_ARG);
+    assert(xmrmsg_generate_tx_keypair(sk, NULL) == XMRMSG_ERR_INVALID_ARG);
+}
+
+TEST(generate_tx_keypair_consistency) {
+    uint8_t tx_sk[32], tx_pk[32];
+    assert(xmrmsg_generate_tx_keypair(tx_sk, tx_pk) == XMRMSG_OK);
+
+    // pk should equal secret_key_to_public_key(sk)
+    uint8_t expected_pk[32];
+    assert(xmrmsg_secret_key_to_public_key(tx_sk, expected_pk) == XMRMSG_OK);
+    assert(memcmp(tx_pk, expected_pk, 32) == 0);
+}
+
+TEST(generate_tx_keypair_random) {
+    uint8_t sk1[32], pk1[32], sk2[32], pk2[32];
+    assert(xmrmsg_generate_tx_keypair(sk1, pk1) == XMRMSG_OK);
+    assert(xmrmsg_generate_tx_keypair(sk2, pk2) == XMRMSG_OK);
+    // Two calls must produce distinct keypairs
+    assert(memcmp(sk1, sk2, 32) != 0);
+    assert(memcmp(pk1, pk2, 32) != 0);
+}
+
+// ─── scalarmult direct ────────────────────────────────────────────────────────
+
+TEST(scalarmult_null_args) {
+    uint8_t out[32], pub[32] = {0};
+    assert(xmrmsg_scalarmult(NULL,        pub, out) == XMRMSG_ERR_INVALID_ARG);
+    assert(xmrmsg_scalarmult(TEST_TX_SK,  NULL, out) == XMRMSG_ERR_INVALID_ARG);
+    assert(xmrmsg_scalarmult(TEST_TX_SK,  pub, NULL) == XMRMSG_ERR_INVALID_ARG);
+}
+
+TEST(scalarmult_vs_base_point) {
+    // scalarmult(sk, G) should equal secret_key_to_public_key(sk)
+    // G is the standard ed25519 base point: (4/5, positive) in compressed form
+    static const uint8_t G[32] = {
+        0x58,0x66,0x66,0x66,0x66,0x66,0x66,0x66,
+        0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,
+        0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,
+        0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66
+    };
+    uint8_t via_scalarmult[32], via_sk_to_pk[32];
+    assert(xmrmsg_scalarmult(TEST_TX_SK, G, via_scalarmult) == XMRMSG_OK);
+    assert(xmrmsg_secret_key_to_public_key(TEST_TX_SK, via_sk_to_pk) == XMRMSG_OK);
+    assert(memcmp(via_scalarmult, via_sk_to_pk, 32) == 0);
+}
+
+// ─── keystream NULL args ──────────────────────────────────────────────────────
+
+TEST(keystream_null_args) {
+    uint8_t derivation[32] = {0x42};
+    uint8_t ks[256];
+    assert(xmrmsg_keystream(NULL,       ks)  == XMRMSG_ERR_INVALID_ARG);
+    assert(xmrmsg_keystream(derivation, NULL) == XMRMSG_ERR_INVALID_ARG);
+}
+
+// ─── is_subaddress with invalid inputs ───────────────────────────────────────
+
+TEST(is_subaddress_invalid) {
+    assert(xmrmsg_is_subaddress(NULL)    == -1);
+    assert(xmrmsg_is_subaddress("")      == -1);
+    assert(xmrmsg_is_subaddress("short") == -1);
+}
+
+// ─── free_message NULL safety ─────────────────────────────────────────────────
+
+TEST(free_message_null_safe) {
+    xmrmsg_free_message(NULL);  // must not crash
+
+    xmrmsg_message_t msg;
+    memset(&msg, 0, sizeof(msg));
+    xmrmsg_free_message(&msg);  // text == NULL, must not crash
+    assert(msg.text == NULL);
+}
+
+// ─── Empty message roundtrip ──────────────────────────────────────────────────
+
+TEST(roundtrip_empty_message) {
+    uint8_t nonce[255];
+    xmrmsg_result_t rc = xmrmsg_encode_nonce(
+        STAGENET_ADDR, TEST_TX_SK,
+        NULL, 0,
+        0, NULL, TEST_THREAD_NONCE,
+        nonce, NULL);
+    assert(rc == XMRMSG_OK);
+
+    uint8_t tx_pk[32];
+    assert(xmrmsg_secret_key_to_public_key(TEST_TX_SK, tx_pk) == XMRMSG_OK);
+
+    const uint8_t (*candidates)[XMRMSG_KEY_SIZE] = { &tx_pk };
+    xmrmsg_message_t msg;
+    memset(&msg, 0, sizeof(msg));
+    assert(xmrmsg_decode_nonce(nonce, TEST_VIEW_SK, candidates, 1, &msg) == XMRMSG_OK);
+    assert(msg.text_len == 0);
+    assert(msg.text != NULL);  // NUL-terminator is still allocated
+    assert(msg.text[0] == '\0');
+    xmrmsg_free_message(&msg);
+}
+
+// ─── Encode with invalid sender address ──────────────────────────────────────
+
+TEST(encode_invalid_sender_address) {
+    uint8_t nonce[255];
+    const uint8_t *m = reinterpret_cast<const uint8_t *>("hi");
+    // SENDER_ADDR flag set, but sender_addr is malformed
+    assert(xmrmsg_encode_nonce(
+        STAGENET_ADDR, TEST_TX_SK, m, 2,
+        XMRMSG_FLAG_SENDER_ADDR,
+        "not_a_valid_address_at_all_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        NULL, nonce, NULL)
+        == XMRMSG_ERR_INVALID_ADDRESS);
+}
+
+// ─── Decode: correct key not first candidate ──────────────────────────────────
+
+TEST(decode_multiple_candidates_right_key_last) {
+    uint8_t nonce[255];
+    xmrmsg_encode_nonce(STAGENET_ADDR, TEST_TX_SK,
+                        reinterpret_cast<const uint8_t *>("multi"), 5,
+                        0, NULL, TEST_THREAD_NONCE, nonce, NULL);
+
+    uint8_t tx_pk[32];
+    xmrmsg_secret_key_to_public_key(TEST_TX_SK, tx_pk);
+
+    // First candidate is a decoy (all-zeros public key — will fail derivation or decrypt)
+    uint8_t decoy[32] = {0};
+    // Build candidates array: [decoy, correct]
+    uint8_t candidates[2][XMRMSG_KEY_SIZE];
+    memcpy(candidates[0], decoy,  XMRMSG_KEY_SIZE);
+    memcpy(candidates[1], tx_pk,  XMRMSG_KEY_SIZE);
+
+    xmrmsg_message_t msg;
+    memset(&msg, 0, sizeof(msg));
+    assert(xmrmsg_decode_nonce(nonce, TEST_VIEW_SK,
+                               (const uint8_t (*)[XMRMSG_KEY_SIZE])candidates,
+                               2, &msg) == XMRMSG_OK);
+    assert(msg.text_len == 5);
+    assert(memcmp(msg.text, "multi", 5) == 0);
+    xmrmsg_free_message(&msg);
+}
+
+// ─── Wallet API ───────────────────────────────────────────────────────────────
+
+TEST(wallet_from_keys_null_args) {
+    xmrmsg_wallet_t *w = NULL;
+    // NULL view_sk
+    assert(xmrmsg_wallet_from_keys(NULL, NULL, STAGENET_ADDR, 0, NULL, &w)
+           == XMRMSG_ERR_INVALID_ARG);
+    // NULL primary_address
+    assert(xmrmsg_wallet_from_keys(NULL, TEST_VIEW_SK, NULL, 0, NULL, &w)
+           == XMRMSG_ERR_INVALID_ARG);
+    // NULL out_wallet
+    assert(xmrmsg_wallet_from_keys(NULL, TEST_VIEW_SK, STAGENET_ADDR, 0, NULL, NULL)
+           == XMRMSG_ERR_INVALID_ARG);
+}
+
+TEST(wallet_from_keys_invalid_address) {
+    xmrmsg_wallet_t *w = NULL;
+    assert(xmrmsg_wallet_from_keys(NULL, TEST_VIEW_SK, "bad_address", 0, NULL, &w)
+           == XMRMSG_ERR_INVALID_ADDRESS);
+}
+
+TEST(wallet_from_keys_view_only) {
+    xmrmsg_wallet_t *w = NULL;
+    assert(xmrmsg_wallet_from_keys(NULL, TEST_VIEW_SK, STAGENET_ADDR, 0, NULL, &w)
+           == XMRMSG_OK);
+    assert(w != NULL);
+
+    // build_tx must fail for view-only wallet
+    xmrmsg_pending_tx_t *tx = NULL;
+    assert(xmrmsg_build_tx(w, STAGENET_ADDR,
+                           reinterpret_cast<const uint8_t *>("hi"), 2,
+                           0, NULL, NULL,
+                           XMRMSG_DEFAULT_DUST_PICONERO,
+                           XMRMSG_PRIORITY_NORMAL,
+                           &tx, NULL)
+           == XMRMSG_ERR_VIEW_ONLY);
+
+    xmrmsg_wallet_free(w);
+}
+
+TEST(wallet_from_keys_with_spend_key) {
+    xmrmsg_wallet_t *w = NULL;
+    uint8_t spend_sk[32];
+    memset(spend_sk, 0x33, 32);
+    spend_sk[31] = 0x04;
+    assert(xmrmsg_wallet_from_keys(spend_sk, TEST_VIEW_SK, STAGENET_ADDR, 0, NULL, &w)
+           == XMRMSG_OK);
+    assert(w != NULL);
+    xmrmsg_wallet_free(w);
+    xmrmsg_wallet_free(NULL);  // NULL-safe
+}
+
+TEST(build_tx_null_args) {
+    assert(xmrmsg_build_tx(NULL, STAGENET_ADDR, NULL, 0, 0, NULL, NULL, 0,
+                           XMRMSG_PRIORITY_NORMAL, NULL, NULL)
+           == XMRMSG_ERR_INVALID_ARG);
+
+    xmrmsg_wallet_t *w = NULL;
+    xmrmsg_wallet_from_keys(NULL, TEST_VIEW_SK, STAGENET_ADDR, 0, NULL, &w);
+    assert(w != NULL);
+
+    xmrmsg_pending_tx_t *tx = NULL;
+    assert(xmrmsg_build_tx(w, NULL, NULL, 0, 0, NULL, NULL, 0,
+                           XMRMSG_PRIORITY_NORMAL, &tx, NULL)
+           == XMRMSG_ERR_INVALID_ARG);
+    assert(xmrmsg_build_tx(w, STAGENET_ADDR, NULL, 0, 0, NULL, NULL, 0,
+                           XMRMSG_PRIORITY_NORMAL, NULL, NULL)
+           == XMRMSG_ERR_INVALID_ARG);
+
+    xmrmsg_wallet_free(w);
+}
+
+TEST(build_tx_bad_amount) {
+    uint8_t spend_sk[32];
+    memset(spend_sk, 0x33, 32);
+    spend_sk[31] = 0x04;
+
+    xmrmsg_wallet_t *w = NULL;
+    xmrmsg_wallet_from_keys(spend_sk, TEST_VIEW_SK, STAGENET_ADDR, 0, NULL, &w);
+    assert(w != NULL);
+
+    xmrmsg_pending_tx_t *tx = NULL;
+    // Amount below minimum (but non-zero)
+    assert(xmrmsg_build_tx(w, STAGENET_ADDR, NULL, 0, 0, NULL, NULL,
+                           XMRMSG_MIN_DUST_PICONERO - 1,
+                           XMRMSG_PRIORITY_NORMAL, &tx, NULL)
+           == XMRMSG_ERR_INVALID_ARG);
+
+    xmrmsg_wallet_free(w);
+}
+
+TEST(tx_id_and_broadcast_null_args) {
+    uint8_t txid[32];
+    assert(xmrmsg_tx_id(NULL, txid)    == XMRMSG_ERR_INVALID_ARG);
+    assert(xmrmsg_tx_id((const xmrmsg_pending_tx_t *)&txid, NULL)
+           == XMRMSG_ERR_INVALID_ARG);
+
+    assert(xmrmsg_broadcast_tx(NULL, "http://node:18081", NULL)
+           == XMRMSG_ERR_INVALID_ARG);
+    assert(xmrmsg_broadcast_tx((const xmrmsg_pending_tx_t *)&txid, NULL, NULL)
+           == XMRMSG_ERR_INVALID_ARG);
+
+    xmrmsg_free_pending_tx(NULL);  // must not crash
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 int main(void) {
@@ -381,24 +639,42 @@ int main(void) {
     printf("====================\n\n");
 
     RUN(constants);
+    RUN(version_string);
     RUN(validate_address_primary);
     RUN(validate_address_subaddress);
     RUN(validate_address_invalid);
+    RUN(is_subaddress_invalid);
     RUN(derive_basic);
     RUN(derive_symmetry);
+    RUN(keystream_null_args);
     RUN(keystream_length_and_determinism);
     RUN(keystream_different_derivations_differ);
+    RUN(generate_tx_keypair_null_args);
+    RUN(generate_tx_keypair_consistency);
+    RUN(generate_tx_keypair_random);
+    RUN(scalarmult_null_args);
+    RUN(scalarmult_vs_base_point);
     RUN(roundtrip_anonymous);
     RUN(roundtrip_with_sender);
     RUN(roundtrip_reply);
     RUN(roundtrip_subaddress_recipient);
     RUN(roundtrip_max_message_anon);
     RUN(roundtrip_max_message_with_sender);
+    RUN(roundtrip_empty_message);
     RUN(encode_errors);
+    RUN(encode_invalid_sender_address);
     RUN(decode_errors);
+    RUN(decode_multiple_candidates_right_key_last);
     RUN(wrong_key_decrypt_failed);
     RUN(encode_different_random_nonces);
-
+    RUN(free_message_null_safe);
+    RUN(wallet_from_keys_null_args);
+    RUN(wallet_from_keys_invalid_address);
+    RUN(wallet_from_keys_view_only);
+    RUN(wallet_from_keys_with_spend_key);
+    RUN(build_tx_null_args);
+    RUN(build_tx_bad_amount);
+    RUN(tx_id_and_broadcast_null_args);
     printf("\n%d passed", g_passed);
     if (g_failed) printf(", %d FAILED", g_failed);
     printf("\n");
